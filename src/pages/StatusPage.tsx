@@ -1,12 +1,12 @@
 import React, { useEffect, useState } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
 
+import { supabase } from '../lib/supabase';
+
 const STATUS_MESSAGES = [
-  "Verifying payment...",
-  "Making purchase order...",
-  "Awaiting admin approval...",
-  "Processing diamond delivery...",
-  "Finalizing your recharge..."
+  "Creating customer order...",
+  "Validating order ID...",
+  "Awaiting admin fulfillment..."
 ];
 
 export const StatusPage: React.FC = () => {
@@ -48,28 +48,28 @@ export const StatusPage: React.FC = () => {
           return;
         }
 
-        // 2. Poll for status
+        // 2. Start local simulated carousel
+        let step = 0;
         const interval = setInterval(async () => {
-          try {
-            const statusRes = await fetch(`${API_URL}/api/recharge-status/${state.orderId}`);
-            const statusData = await statusRes.json();
+          step++;
+          if (step < STATUS_MESSAGES.length) {
+            setStatusIdx(step);
+          } else {
+            clearInterval(interval);
             
-            if (statusData.status === 'complete') {
-              clearInterval(interval);
-              setIsComplete(true);
-            } else if (statusData.status === 'failed') {
-              clearInterval(interval);
-              setError('Recharge failed. Please contact support with your order ID.');
-            } else {
-              // Update carousel index based on backend step or just loop
-              setStatusIdx(prev => (prev + 1) % STATUS_MESSAGES.length);
+            // Mark as complete in Supabase!
+            if (state.supabaseOrderId) {
+              await supabase.from('orders')
+                .update({ status: 'complete' })
+                .eq('id', state.supabaseOrderId);
             }
-          } catch (e) {
-            console.error(e);
+            
+            setIsComplete(true);
           }
-        }, 3000);
+        }, 5000); // 5 seconds per step
         
         return () => clearInterval(interval);
+        
         
       } catch (err) {
         console.error(err);
@@ -125,7 +125,7 @@ export const StatusPage: React.FC = () => {
             </div>
             <h2 style={{ fontFamily: 'var(--font-heading)', color: 'var(--brand)', marginBottom: '1rem' }}>Order Made! 🎉</h2>
             <p style={{ color: 'var(--text-secondary)', fontSize: '1.1rem', marginBottom: '2rem' }}>
-              Your purchase should arrive shortly (1-5 mins).
+              Purchased successfully - package should arrive in about 1 minute
             </p>
             <button
               onClick={() => navigate('/')}

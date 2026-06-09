@@ -12,19 +12,13 @@ export const PaymentPage: React.FC = () => {
   const [isProcessing, setIsProcessing] = useState(false);
   const { user } = useAuth();
 
-  const insertOrder = async (status: string) => {
-    if (!user || !state) return;
+  const updateOrderStatus = async (supabaseOrderId: string, status: string) => {
     try {
-      await supabase.from('orders').insert({
-        user_id: user.id,
-        pack_id: state.pack.gamegemsId,
-        pack_title: state.pack.title,
-        amount: state.pack.price,
-        payment_method: 'UPI/Card',
-        status: status
-      });
+      await supabase.from('orders')
+        .update({ status })
+        .eq('id', supabaseOrderId);
     } catch (err) {
-      console.error('Failed to log order:', err);
+      console.error('Failed to update order:', err);
     }
   };
 
@@ -41,6 +35,24 @@ export const PaymentPage: React.FC = () => {
   const handleCreateOrder = async () => {
     setIsProcessing(true);
     try {
+      if (!user) return;
+      
+      // 1. Create order in Supabase with 'waiting_for_payment' status
+      const { data: supabaseOrder, error: dbErr } = await supabase.from('orders').insert({
+        user_id: user.id,
+        pack_id: pack.gamegemsId,
+        pack_title: pack.title,
+        amount: pack.price,
+        payment_method: 'UPI/Card',
+        status: 'waiting_for_payment'
+      }).select().single();
+
+      if (dbErr || !supabaseOrder) {
+        alert('Failed to initialize order tracking');
+        setIsProcessing(false);
+        return;
+      }
+
       const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:3000';
       const response = await fetch(`${API_URL}/api/create-order`, {
         method: 'POST',
@@ -67,7 +79,7 @@ export const PaymentPage: React.FC = () => {
           order_id: data.razorpayOrderId,
           handler: async function(response: any) {
             // Payment success!
-            await insertOrder('success');
+            await updateOrderStatus(supabaseOrder.id, 'processing');
             
             // Save account
             try {
@@ -89,7 +101,8 @@ export const PaymentPage: React.FC = () => {
                 orderId: data.orderId,
                 paymentId: response.razorpay_payment_id,
                 pack,
-                verification
+                verification,
+                supabaseOrderId: supabaseOrder.id
               } 
             });
           },
@@ -101,7 +114,7 @@ export const PaymentPage: React.FC = () => {
           },
           modal: {
             ondismiss: function() {
-              insertOrder('canceled');
+              updateOrderStatus(supabaseOrder.id, 'canceled');
             }
           }
         };
@@ -116,7 +129,7 @@ export const PaymentPage: React.FC = () => {
         // Handle payment failure event
         rzp.on('payment.failed', async function (response: any){
           console.error("Payment Failed", response.error);
-          await insertOrder('failed');
+          await updateOrderStatus(supabaseOrder.id, 'failed');
           alert('Payment Failed: ' + response.error.description);
         });
         

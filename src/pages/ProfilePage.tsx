@@ -12,6 +12,12 @@ interface Order {
   created_at: string;
 }
 
+const STATUS_MESSAGES = [
+  "Creating customer order...",
+  "Validating order ID...",
+  "Awaiting admin fulfillment..."
+];
+
 export const ProfilePage: React.FC = () => {
   const { user, signOut, isLoading } = useAuth();
   const navigate = useNavigate();
@@ -38,7 +44,26 @@ export const ProfilePage: React.FC = () => {
         .order('created_at', { ascending: false });
 
       if (error) throw error;
-      setOrders(data || []);
+      
+      // Auto-heal 'processing' orders that have exceeded the 15-second simulation window
+      const now = new Date().getTime();
+      let modified = false;
+      
+      const processedData = await Promise.all((data || []).map(async (order) => {
+        if (order.status === 'processing') {
+          const createdAt = new Date(order.created_at).getTime();
+          const elapsedSecs = (now - createdAt) / 1000;
+          if (elapsedSecs > 15) {
+            // Update db
+            await supabase.from('orders').update({ status: 'complete' }).eq('id', order.id);
+            order.status = 'complete';
+            modified = true;
+          }
+        }
+        return order;
+      }));
+      
+      setOrders(processedData);
     } catch (err) {
       console.error('Error fetching orders:', err);
     } finally {
@@ -61,11 +86,26 @@ export const ProfilePage: React.FC = () => {
 
   const getStatusColor = (status: string) => {
     switch (status.toLowerCase()) {
-      case 'success': return 'var(--success)';
+      case 'success':
+      case 'complete': return 'var(--success)';
       case 'failed': return 'var(--error)';
       case 'canceled': return 'var(--warning)';
+      case 'waiting_for_payment': return 'var(--warning)';
+      case 'processing': return 'var(--brand)';
       default: return 'var(--text-secondary)';
     }
+  };
+
+  const activeOrders = orders.filter(o => o.status === 'waiting_for_payment' || o.status === 'processing');
+  const pastOrders = orders.filter(o => o.status !== 'waiting_for_payment' && o.status !== 'processing');
+
+  // Helper for live tracking step
+  const getProcessingStep = (createdAtStr: string) => {
+    const elapsedSecs = (new Date().getTime() - new Date(createdAtStr).getTime()) / 1000;
+    if (elapsedSecs < 5) return 0;
+    if (elapsedSecs < 10) return 1;
+    if (elapsedSecs < 15) return 2;
+    return 2;
   };
 
   return (
@@ -134,9 +174,58 @@ export const ProfilePage: React.FC = () => {
       </div>
 
       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '1.5rem' }}>
-        <h2 style={{ margin: 0, fontSize: '1.5rem' }}>Recent Orders</h2>
+        <h2 style={{ margin: 0, fontSize: '1.5rem' }}>My Orders</h2>
         <span style={{ color: 'var(--text-muted)', fontSize: '0.9rem' }}>{orders.length} orders total</span>
       </div>
+      
+      {/* Active Orders Section */}
+      {activeOrders.length > 0 && (
+        <div style={{ marginBottom: '3rem' }}>
+          <h3 style={{ fontSize: '1.2rem', marginBottom: '1rem', color: 'var(--brand)' }}>Active Tracking</h3>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
+            {activeOrders.map(order => (
+              <div key={order.id} style={{ 
+                backgroundColor: 'var(--bg-card)', 
+                borderRadius: 'var(--radius-md)', 
+                padding: '1.5rem',
+                border: `1px solid ${order.status === 'processing' ? 'var(--brand)' : 'var(--warning)'}`,
+                boxShadow: order.status === 'processing' ? '0 0 15px rgba(0, 253, 4, 0.1)' : 'none'
+              }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '1rem' }}>
+                  <h3 style={{ margin: 0 }}>{order.pack_title}</h3>
+                  <div style={{ fontWeight: 'bold', color: getStatusColor(order.status) }}>
+                    {order.status === 'waiting_for_payment' ? 'Waiting for Payment' : 'Processing'}
+                  </div>
+                </div>
+                
+                {order.status === 'processing' && (
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '1rem', marginTop: '1rem', padding: '1rem', backgroundColor: 'var(--bg-secondary)', borderRadius: 'var(--radius-md)' }}>
+                    <div style={{
+                      width: '24px',
+                      height: '24px',
+                      border: '3px solid var(--border)',
+                      borderTopColor: 'var(--brand)',
+                      borderRadius: '50%',
+                      animation: 'spin 1.5s linear infinite'
+                    }} />
+                    <div style={{ fontWeight: 600 }}>
+                      {STATUS_MESSAGES[getProcessingStep(order.created_at)]}
+                    </div>
+                  </div>
+                )}
+                
+                {order.status === 'waiting_for_payment' && (
+                  <p style={{ color: 'var(--text-muted)', fontSize: '0.9rem', margin: '0.5rem 0 0 0' }}>
+                    Payment has not been completed yet. If you canceled it, you can safely ignore this.
+                  </p>
+                )}
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {/* History Section */}
       
       {loadingOrders ? (
         <div style={{ textAlign: 'center', padding: '3rem', color: 'var(--text-muted)' }}>
@@ -151,8 +240,11 @@ export const ProfilePage: React.FC = () => {
         </div>
       ) : (
         <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
-          {orders.map((order) => (
-            <div key={order.id} style={{ 
+          {pastOrders.length === 0 ? (
+            <p style={{ color: 'var(--text-muted)' }}>No completed orders found.</p>
+          ) : (
+            pastOrders.map((order) => (
+              <div key={order.id} style={{ 
               backgroundColor: 'var(--bg-card)', 
               borderRadius: 'var(--radius-md)', 
               padding: '1.5rem',
@@ -197,9 +289,8 @@ export const ProfilePage: React.FC = () => {
                   </div>
                 </div>
               </div>
-              
             </div>
-          ))}
+          )))}
         </div>
       )}
     </div>
