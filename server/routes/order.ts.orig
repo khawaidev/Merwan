@@ -15,7 +15,7 @@ orderRouter.post('/create-order', async (req, res) => {
     const internalOrderId = uuidv4();
     
     // Convert to paise
-    const razorpayOrder = await razorpayService.createOrder(Math.round(amount * 100), internalOrderId);
+    const razorpayOrder = await razorpayService.createOrder(amount * 100, internalOrderId);
     
     ordersDb.set(internalOrderId, {
       id: internalOrderId,

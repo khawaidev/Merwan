@@ -59,7 +59,7 @@ export const PaymentPage: React.FC = () => {
         // For UPI intent flow, we can use the checkout script
         const options = {
           key: data.keyId,
-          amount: Math.round(pack.price * 100), // in paise
+          amount: pack.price * 100, // in paise
           currency: 'INR',
           name: 'Merwan',
           description: `Recharge: ${pack.title}`,

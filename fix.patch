@@ -1,0 +1,9 @@
+--- src/pages/PaymentPage.tsx
++++ src/pages/PaymentPage.tsx
+@@ -59,7 +59,7 @@
+         const options = {
+           key: data.keyId,
+-          amount: pack.price * 100, // in paise
++          amount: Math.round(pack.price * 100), // in paise
+           currency: 'INR',
+           name: 'Merwan',
