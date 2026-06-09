@@ -86,7 +86,8 @@ export const StatusPage: React.FC = () => {
             paymentId: state.paymentId,
             userId: state.verification?.userId,
             serverId: state.verification?.serverId,
-            packId: state.pack?.gamegemsId
+            packId: state.pack?.gamegemsId,
+            supabaseOrderId: state.supabaseOrderId
           })
         });
         const data = await response.json();

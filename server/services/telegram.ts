@@ -20,10 +20,12 @@ export class TelegramService {
       return false;
     }
 
+    const shortId = `#${orderId.slice(0, 8).toUpperCase()}`;
+
     const message = `
 🚨 *NEW RECHARGE ORDER* 🚨
 
-*Order ID*: \`${orderId}\`
+*Order ID*: \`${shortId}\`
 *User ID*: \`${userId}\`
 *Zone ID*: \`${zoneId}\`
 *Pack ID*: ${packId}

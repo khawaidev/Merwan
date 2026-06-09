@@ -8,7 +8,7 @@ export const rechargeRouter = Router();
 export const rechargeStatusDb = new Map<string, any>();
 
 rechargeRouter.post('/', async (req, res) => {
-  const { orderId, paymentId, userId, serverId, packId } = req.body;
+  const { orderId, paymentId, userId, serverId, packId, supabaseOrderId } = req.body;
 
   // In a real app, verify the Razorpay signature here before proceeding
   
@@ -25,8 +25,8 @@ rechargeRouter.post('/', async (req, res) => {
       
       rechargeStatusDb.set(orderId, { status: 'processing', step: 'Sending to Admin for fulfillment...' });
 
-      // Send to Telegram
-      await telegramService.sendFulfillmentTask(orderId, amount, packId, userId, serverId);
+      // Send to Telegram — use supabaseOrderId so it matches the user's profile
+      await telegramService.sendFulfillmentTask(supabaseOrderId || orderId, amount, packId, userId, serverId);
 
       // We complete the flow for the user instantly now, because Admin manually fulfills it.
       rechargeStatusDb.set(orderId, { status: 'complete', step: 'Order sent to Admin for manual processing' });
