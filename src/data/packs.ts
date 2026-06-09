@@ -5,7 +5,7 @@ export const PACKS: DiamondPack[] = [
   {
     id: 'pack-11',
     title: '11 Diamonds (10+1)',
-    price: 1, // Gamegems approx 15-20
+    price: 25,
     imageUrl: 'https://gamegems.store/images/smilemlbbpack212.png',
     promoTag: 'Promo',
     gamegemsId: '212'
