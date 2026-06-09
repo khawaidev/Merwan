@@ -197,3 +197,14 @@ input {
     margin-right: 0.5rem;
   }
 }
+
+.footer-link {
+  color: var(--text-secondary);
+  font-size: 0.95rem;
+  transition: color var(--transition-fast);
+  text-decoration: none;
+}
+.footer-link:hover {
+  color: var(--brand);
+  text-decoration: underline;
+}

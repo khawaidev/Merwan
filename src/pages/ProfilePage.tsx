@@ -102,7 +102,7 @@ export const ProfilePage: React.FC = () => {
           </div>
           <div>
             <h1 style={{ margin: 0, fontSize: '1.8rem' }}>{user.user_metadata?.full_name || 'User'}</h1>
-            <p style={{ color: 'var(--text-secondary)', margin: '0.25rem 0 0 0', fontSize: '0.95rem' }}>{user.email}</p>
+            <p style={{ color: 'var(--text-secondary)', margin: '0.25rem 0 0 0', fontSize: '0.95rem', wordBreak: 'break-all' }}>{user.email}</p>
           </div>
         </div>
         
